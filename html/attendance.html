@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Attendance</title>
+    <link rel="stylesheet" href="css/styles.css" />
+    <script src="https://unpkg.com/html5-qrcode"></script>
+</head>
+<body>
+    <header>
+        <h1>Student Entry Exit System</h1>
+        <nav>
+            <ul>
+                <li><a href="home.html">Home</a></li>
+                <li><a href="entry-log.html">Entry Log</a></li>
+                <li><a href="exit-log.html">Exit Log</a></li>
+                <li><a href="register.html">Register</a></li>
+                <li><a href="schedule.html">Schedule</a></li>
+                <li><a href="security.html">Security Alerts</a></li>
+                <li><a href="admin.html">Admin Dashboard</a></li>
+            </ul>
+        </nav>
+    </header>
+    <h1>Attendance System</h1>
+
+    <!-- Schedule Section -->
+    <div class="container">
+        <h2>Current Schedule</h2>
+        <table border="1">
+            <thead>
+                <tr>
+                    <th>Period Number</th>
+                    <th>Subject</th>
+                    <th>Start Time</th>
+                    <th>End Time</th>
+                    <th>Location</th>
+                </tr>
+            </thead>
+            <tbody id="scheduleTable"></tbody>
+        </table>
+    </div>
+
+    <!-- QR Scanner Section -->
+    <div class="container">
+        <h2>Scan QR Code to Mark Attendance</h2>
+        <div id="reader" style="width: 300px;"></div>
+        <div id="scan-result"></div>
+    </div>
+
+    <!-- Student Details -->
+    <div class="container" id="studentDetails" style="display: none;">
+        <h3>Scanned Student Details</h3>
+        <p><strong>ID:</strong> <span id="studentId"></span></p>
+        <p><strong>Name:</strong> <span id="studentName"></span></p>
+        <p><strong>Age:</strong> <span id="studentAge"></span></p>
+        <p><strong>Department:</strong> <span id="studentDepartment"></span></p>
+        <p><strong>Class Start:</strong> <span id="classStart"></span></p>
+        <p><strong>Class End:</strong> <span id="classEnd"></span></p>
+        <button id="submitAttendance" onclick="submitAttendance()">Submit Attendance</button>
+    </div>
+
+    <!-- Late Students Section -->
+    <div class="container">
+        <h2>Late Students</h2>
+        <table id="lateStudentsTable" border="1">
+            <thead>
+                <tr>
+                    <th>Student ID</th>
+                    <th>Student Name</th>
+                    <th>Period Number</th>
+                    <th>Subject</th>
+                    <th>Entry Time</th>
+                    <th>Status</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </div>
+
+    <!-- Attendance Logs -->
+    <div class="container">
+        <h2>Attendance Logs</h2>
+        <table id="attendanceTable" border="1">
+            <thead>
+                <tr>
+                    <th>Student ID</th>
+                    <th>Student Name</th>
+                    <th>Period Number</th>
+                    <th>Subject</th>
+                    <th>Entry Time</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </div>
+
+    <script>
+    let currentStudent = null;
+
+    // Format time to 12-hour format
+    function formatTime(time) {
+        const [hour, minute] = time.split(':');
+        const ampm = hour >= 12 ? 'PM' : 'AM';
+        const formattedHour = ((hour % 12) || 12).toString().padStart(2, '0');
+        return `${formattedHour}:${minute} ${ampm}`;
+    }
+
+    // Load Schedule
+    async function loadSchedule() {
+    try {
+        const response = await fetch('fetch_schedule.php');
+        const data = await response.json();
+        console.log("Schedule Data:", data); // Debugging
+
+        const tableBody = document.getElementById('scheduleTable');
+        tableBody.innerHTML = '';
+
+        if (data.status === 'error' || data.status === 'empty') {
+            tableBody.innerHTML = '<tr><td colspan="5">No schedule data available</td></tr>';
+            return;
+        }
+
+        data.forEach(row => {
+            const rowHTML = `
+                <tr>
+                    <td>${row.period_number}</td>
+                    <td>${row.subject || 'N/A'}</td>
+                    <td>${row.start_time}</td>
+                    <td>${row.end_time}</td>
+                    <td>${row.location || 'N/A'}</td>
+                </tr>
+            `;
+            tableBody.insertAdjacentHTML('beforeend', rowHTML);
+        });
+    } catch (error) {
+        console.error('Error loading schedule:', error);
+    }
+}
+
+    // QR Code Scan Success
+    function onScanSuccess(qrCodeMessage) {
+    console.log("Scanned QR Code:", qrCodeMessage);
+    try {
+        const studentData = JSON.parse(qrCodeMessage);
+        currentStudent = studentData;
+
+        document.getElementById('studentId').textContent = studentData.StudentID || 'N/A';
+        document.getElementById('studentName').textContent = studentData.StudentName || 'N/A';
+        document.getElementById('studentAge').textContent = studentData.Age || 'N/A';
+        document.getElementById('studentDepartment').textContent = studentData.Department || 'N/A';
+        document.getElementById('studentDetails').style.display = 'block';
+
+        fetchClassDetails(studentData.StudentID);
+    } catch (error) {
+        console.error("Invalid QR Code:", error);
+        alert("Invalid QR Code");
+    }
+}
+
+    function onScanError(errorMessage) {
+        console.warn(`QR Scan Error: ${errorMessage}`);
+    }
+
+    // Initialize QR Scanner
+    const html5QrCode = new Html5Qrcode("reader");
+    html5QrCode.start(
+        { facingMode: "environment" },
+        { fps: 10, qrbox: { width: 250, height: 250 } },
+        onScanSuccess,
+        onScanError
+    );
+
+    // Fetch Class Details
+    async function fetchClassDetails(studentId) {
+        try {
+            const response = await fetch('fetch_class_times.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ student_id: studentId })
+            });
+            const data = await response.json();
+
+            if (data.status === 'success' && data.start_time !== 'N/A') {
+                document.getElementById('classStart').textContent = formatTime(data.start_time);
+                document.getElementById('classEnd').textContent = formatTime(data.end_time);
+            } else {
+                document.getElementById('classStart').textContent = 'N/A';
+                document.getElementById('classEnd').textContent = 'N/A';
+            }
+        } catch (error) {
+            console.error('Failed to fetch class details:', error);
+            document.getElementById('classStart').textContent = 'N/A';
+            document.getElementById('classEnd').textContent = 'N/A';
+        }
+    }
+
+    // Submit Attendance
+    async function submitAttendance() {
+        if (!currentStudent) {
+            alert('Please scan a valid QR Code');
+            return;
+        }
+
+        try {
+            const response = await fetch('mark_attendance.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ student_id: currentStudent.StudentID })
+            });
+
+            const result = await response.json();
+            if (result.status === 'success') {
+                alert(result.message);
+                loadAttendance();
+                loadLateStudents();
+                resetForm();
+            } else {
+                alert(result.message);
+            }
+        } catch (error) {
+            console.error('Error:', error);
+            alert('Failed to mark attendance');
+        }
+    }
+
+    // Reset Form
+    function resetForm() {
+        currentStudent = null;
+        document.getElementById('studentDetails').style.display = 'none';
+        document.getElementById('scan-result').textContent = '';
+    }
+
+    // Load Attendance Logs
+    async function loadAttendance() {
+        try {
+            const response = await fetch('fetch_attendance.php');
+            const data = await response.json();
+            const tableBody = document.querySelector('#attendanceTable tbody');
+            tableBody.innerHTML = '';
+
+            if (data.status === 'error' || data.status === 'empty') {
+                tableBody.innerHTML = '<tr><td colspan="6">No attendance data available</td></tr>';
+                return;
+            }
+
+            data.forEach(log => {
+                const row = `
+                    <tr>
+                        <td>${log.student_id}</td>
+                        <td>${log.student_name || 'N/A'}</td>
+                        <td>${log.period_number}</td>
+                        <td>${log.subject || 'N/A'}</td>
+                        <td>${log.entry_time}</td>
+                        <td>${log.status}</td>
+                    </tr>
+                `;
+                tableBody.insertAdjacentHTML('beforeend', row);
+            });
+        } catch (error) {
+            console.error('Error loading attendance:', error);
+        }
+    }
+
+    // Load Late Students
+    async function loadLateStudents() {
+        try {
+            const response = await fetch('fetch_attendance.php');
+            const data = await response.json();
+            const tableBody = document.querySelector('#lateStudentsTable tbody');
+            tableBody.innerHTML = '';
+
+            if (data.status === 'error' || data.status === 'empty') {
+                tableBody.innerHTML = '<tr><td colspan="7">No late students</td></tr>';
+                return;
+            }
+
+            const lateStudents = data.filter(log => log.status === 'Late');
+            lateStudents.forEach(log => {
+                const row = `
+                    <tr>
+                        <td>${log.student_id}</td>
+                        <td>${log.student_name || 'N/A'}</td>
+                        <td>${log.period_number}</td>
+                        <td>${log.subject || 'N/A'}</td>
+                        <td>${log.entry_time}</td>
+                        <td>${log.status}</td>
+                        <td>
+                            <button onclick="updateAttendance(${log.attendance_id}, 'Present')">Mark Present</button>
+                        </td>
+                    </tr>
+                `;
+                tableBody.insertAdjacentHTML('beforeend', row);
+            });
+        } catch (error) {
+            console.error('Error loading late students:', error);
+        }
+    }
+
+    // Update Attendance Status
+    async function updateAttendance(attendanceId, newStatus) {
+        try {
+            const response = await fetch('update_attendance.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ attendance_id: attendanceId, status: newStatus })
+            });
+
+            const result = await response.json();
+            if (result.status === 'success') {
+                alert(result.message);
+                loadAttendance();
+                loadLateStudents();
+            } else {
+                alert(result.message);
+            }
+        } catch (error) {
+            console.error('Error updating attendance:', error);
+            alert('Failed to update attendance');
+        }
+    }
+
+    // Load on Page Start
+    window.onload = () => {
+        loadSchedule();
+        loadAttendance();
+        loadLateStudents();
+    };
+    </script>
+</body>
+</html>

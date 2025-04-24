@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Register Student</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+    <header>
+        <h1>Student QR Code Registration</h1>
+        <nav>
+            <ul>
+                <li><a href="home.html">Home</a></li>
+                <li><a href="attendance.html">Attendance</a></li>
+                <li><a href="entry-log.html">Entry Log</a></li>
+                <li><a href="exit-log.html">Exit Log</a></li>
+                <li><a href="schedule.html">Schedule</a></li>
+                <li><a href="security.html">Security Alerts</a></li>
+                <li><a href="admin.html">Admin Dashboard</a></li>
+            </ul>
+        </nav>
+    </header>
+
+    <div class="container">
+        <form id="registerForm">
+            <input type="text" name="StudentID" id="StudentID" placeholder="Student ID (XX.XX.U4XXX12345)" required />
+            <input type="text" name="StudentName" placeholder="Student Name" required />
+            <input type="number" name="Age" placeholder="Age" required />
+            <input type="text" name="Department" placeholder="Department" required />
+            <input type="datetime-local" name="EntryTime" placeholder="Entry Time" required />
+            <input type="text" name="Location" placeholder="Location" required />
+            <button type="submit">Generate QR Code</button>
+        </form>
+        <div id="qrCode"></div>
+        <div id="statusMessage"></div>
+    </div>
+
+    <script>
+    document.getElementById('registerForm').addEventListener('submit', async function(event) {
+        event.preventDefault();
+
+        const formData = new FormData(this);
+        const studentID = formData.get('StudentID').trim();
+        const studentName = formData.get('StudentName');
+        const age = formData.get('Age');
+        const department = formData.get('Department');
+        const statusMessage = document.getElementById('statusMessage');
+
+        // Regex for Student ID validation (XX.XX.U4XXX12345)
+        const studentIDPattern = /^[A-Z]{2}\.[A-Z]{2}\.U\d[A-Z]{3}\d{5}$/;
+
+        if (!studentIDPattern.test(studentID)) {
+            statusMessage.textContent = "Invalid Student ID format! Expected: XX.XX.U4XXX12345";
+            statusMessage.style.color = "red";
+            return;
+        }
+
+        // Generate QR code content
+        const qrData = JSON.stringify({
+            StudentID: studentID,
+            StudentName: studentName,
+            Age: age,
+            Department: department
+        });
+
+        document.getElementById('qrCode').innerHTML = '';
+        new QRCode(document.getElementById('qrCode'), {
+            text: qrData,
+            width: 150,
+            height: 150
+        });
+
+        // Send data to PHP for storage
+        try {
+            const response = await fetch('register.php', {
+                method: 'POST',
+                body: formData
+            });
+
+            const result = await response.json();
+            statusMessage.textContent = result.message;
+            statusMessage.style.color = result.status === 'success' ? 'green' : 'red';
+        } catch (error) {
+            console.error('Error:', error);
+            statusMessage.textContent = 'Error registering student';
+            statusMessage.style.color = 'red';
+        }
+    });
+    </script>
+</body>
+</html>
