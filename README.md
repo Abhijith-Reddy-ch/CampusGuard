@@ -12,9 +12,6 @@ Campus Guard is a smart student entry-exit logging and attendance tracking syste
   - Implemented using **Interval Scheduling (Greedy Algorithm)**
 - 📲 **Automated Attendance System**
   - Attendance marked automatically via QR scan if within scheduled time
-- 🧭 **Security Tracking via Graph Search (DFS/BFS)**
-- 📊 **Admin Dashboard**
-  - Uses **Binary Search** for quick record lookup
 - 📷 **QR Code Scanner** for real-time logging
 
 ## 🧑‍💻 Tech Stack
