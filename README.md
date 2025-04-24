@@ -61,9 +61,9 @@ Real-time analytics dashboard
 
 ## 📄 License
 
-This project is licensed under the [MIT License](./LICENSE) © 2025 [Abhijith-Reddy-ch].
+This project is licensed under the [MIT License](./LICENSE) © 2025 [ZrVictus].
 
 ---
 
-Made with ❤️ by [Abhijith-Reddy-ch]
+Made with ❤️ by [ZrVictus]
 
