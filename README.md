@@ -1,42 +1,93 @@
-# CampusGuard - Student Entry/Exit & Security System
+# CampusGuard - Advanced Student Attendance & Security System 🛡️
 
-## 📋 Prerequisites
-- **Node.js** (v14 or higher) installed on your system.
-- A terminal (Command Prompt or PowerShell).
+![CampusGuard Banner](https://img.shields.io/badge/Status-Production%20Ready-brightgreen) ![License](https://img.shields.io/badge/License-MIT-blue) ![Node.js](https://img.shields.io/badge/Backend-Node.js%20%7C%20Express-green)
 
-## 🚀 Setup & Installation (First Time Only)
-1.  Open your terminal.
-2.  Navigate to the project folder:
+A comprehensive, full-stack web application designed to digitize campus security, automate attendance via QR codes, and provide real-time analytics for students, teachers, and security staff.
+
+## ✨ Key Features
+
+### 🔐 Security & Access Control
+*   **Role-Based Access Control (RBAC)**: Distinct dashboards for Admins, Teachers, Guards, and Students.
+*   **QR Code Entry/Exit**: Real-time logging of student movements at campus gates.
+*   **Visitor Management System**: Digital tracking of guests, check-in/check-out times, and purpose of visit.
+*   **SOS Emergency Alert**: One-click distress signal for students with geolocation support.
+
+### 📚 Academic Management
+*   **Smart Attendance**: Teachers start class sessions; students scan a session-specific QR code to mark attendance.
+*   **Schedule Management**: Conflict-free scheduling engine for classes.
+*   **Analytics**: Visual charts for attendance trends, daily stats, and student history.
+
+### 👤 User Dashboards
+*   **Admin**: Full control over users, schedules, notices, and system logs. Includes "Deep Delete" protocols for data management.
+*   **Student**: View personal attendance %, access notices, and raise helpdesk tickets.
+*   **Teacher**: Manage classes, view historical logs, and monitor class strength in real-time.
+
+---
+
+## 🛠️ Technology Stack
+
+*   **Frontend**: HTML5, CSS3 (Custom Variables/Dark Mode), Vanilla JavaScript.
+*   **Backend**: Node.js, Express.js.
+*   **Database**: JSON-based local storage (Simulating NoSQL structure) with transactional integrity.
+*   **Security**: `bcryptjs` for password hashing, session validation.
+*   **Libraries**: `html5-qrcode` (Scanning), `Leaflet.js` (Maps), `Chart.js` (Analytics).
+
+---
+
+## 🚀 Getting Started
+
+### Prerequisites
+*   Node.js (v14+) installed.
+*   Git installed.
+
+### Installation
+
+1.  **Clone the Repository**
     ```bash
-    cd C:\Projects\DAAProject
+    git clone https://github.com/Abhijith-Reddy-ch/CampusGuard.git
+    cd CampusGuard
     ```
-    *(Or wherever you have saved the project)*
-3.  Install the required dependencies:
+
+2.  **Install Dependencies**
     ```bash
     npm install
     ```
 
-## ▶️ Running the Application
-1.  Start the server:
+3.  **Start the Server**
     ```bash
-    node server.js
+    npm start
     ```
-2.  You should see the message: `Server V3 running on http://localhost:3000`
+    *Server runs on port 3000 by default.*
 
-## 🌐 Accessing the App
-Open your web browser (Chrome/Edge) and go to:
-**http://localhost:3000**
+4.  **Access the App**
+    Open `http://localhost:3000` in your browser.
 
-## 🔑 Login Credentials (Defaults)
-| Role | Username (ID) | Password |
+---
+
+## 🔑 Default Credentials (for Testing)
+
+The system comes pre-seeded with an Admin account. All other data is clean.
+
+| Role | Username | Password |
 | :--- | :--- | :--- |
 | **Admin** | `admin` | `admin123` |
-| **Teacher** | `teacher` | `teach123` |
-| **Guard** | `guard` | `secure123` |
-| **Student** | `S101` | `password` |
 
-## 🛠️ Features Quick Guide
-*   **Admin**: Register users, Manage Schedules, Post Notices, Delete Class/User.
-*   **Guard**: Scan QR for Entry/Exit, Manage Visitors (`/pages/visitor.html`).
-*   **Teacher**: Check Schedule, Start Class, Scan Student QR for Attendance.
-*   **Student**: View Dashboard, Check Attendance %, Apply for Leave, Helpdesk.
+*(Note: Create new Student/Teacher/Guard accounts using the Admin Dashboard)*
+
+---
+
+## 📸 Usage Guide
+
+1.  **Login as Admin** to set up the campus (Add Teachers, Guards, Schedules).
+2.  **Login as Student** to view your Generated QR Code.
+3.  **Login as Guard** to verify Student QR codes at the gate.
+4.  **Login as Teacher** to display a Class QR code for attendance.
+
+---
+
+## 🛡️ License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+---
+*Built with ❤️ by Abhijith Reddy*

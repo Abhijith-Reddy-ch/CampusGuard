@@ -5,23 +5,9 @@
       "password": "admin123",
       "role": "admin",
       "name": "System Admin"
-    },
-    {
-      "id": "23204",
-      "password": "$2b$08$P9Ahy19qnRJG99P/pmNUd.auS3/Gtrl.mLMxfwXgRwC4vRaOT/G7C",
-      "role": "student",
-      "name": "Abhijith"
     }
   ],
-  "students": {
-    "23204": {
-      "id": "23204",
-      "name": "Abhijith",
-      "age": "20",
-      "department": "CS",
-      "regTime": "2025-12-29T12:01:32.904Z"
-    }
-  },
+  "students": {},
   "entries": [],
   "exits": [],
   "schedules": [],
