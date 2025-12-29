@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Leave Management</title>
+    <link rel="stylesheet" href="../css/style.css">
+</head>
+
+<body>
+    <nav>
+        <div class="brand">CampusGuard</div>
+        <ul>
+            <li><a href="#" onclick="window.history.back()">Back</a></li>
+        </ul>
+    </nav>
+    <div id="notification-area"></div>
+
+    <main>
+        <h2>Leave Management</h2>
+
+        <!-- Student Section: Apply -->
+        <div id="studentSection" class="card" style="display:none; margin-bottom: 2rem;">
+            <h3>Apply for Leave</h3>
+            <div style="display: flex; gap: 1rem;">
+                <div class="form-group" style="flex:1;">
+                    <label>Start Date</label>
+                    <input type="date" id="startDate">
+                </div>
+                <div class="form-group" style="flex:1;">
+                    <label>End Date</label>
+                    <input type="date" id="endDate">
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Reason</label>
+                <input type="text" id="reason" placeholder="e.g. Sick Leave">
+            </div>
+            <button class="btn btn-primary" onclick="applyLeave()">Submit Application</button>
+        </div>
+
+        <!-- Shared Section: List -->
+        <div class="card">
+            <h3>Leave Requests</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Student ID</th>
+                        <th>Dates</th>
+                        <th>Reason</th>
+                        <th>Status</th>
+                        <th id="actionHeader">Action</th>
+                    </tr>
+                </thead>
+                <tbody id="leaveTable"></tbody>
+            </table>
+        </div>
+    </main>
+
+    <script src="../js/main.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', async () => {
+            checkAuth();
+            const user = getSession();
+
+            if (user.role === 'student') {
+                document.getElementById('studentSection').style.display = 'block';
+                // Students only see action if they want to cancel? (MVP: No cancel yet)
+                document.getElementById('actionHeader').style.display = 'none';
+            }
+
+            loadLeaves();
+        });
+
+        async function applyLeave() {
+            const start = document.getElementById('startDate').value;
+            const end = document.getElementById('endDate').value;
+            const reason = document.getElementById('reason').value;
+            const user = getSession();
+
+            if (!start || !end || !reason) return showNotification("Fill all fields", "error");
+
+            const res = await apiCall('/api/leave', 'POST', {
+                studentId: user.id, startDate: start, endDate: end, reason
+            });
+
+            if (res && res.success) {
+                showNotification("Applied Successfully", "success");
+                loadLeaves();
+            } else {
+                showNotification("Failed", "error");
+            }
+        }
+
+        async function loadLeaves() {
+            const user = getSession();
+            const leaves = await apiCall('/api/leaves');
+            const tbody = document.getElementById('leaveTable');
+            tbody.innerHTML = '';
+
+            if (!leaves || leaves.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5">No records found.</td></tr>';
+                return;
+            }
+
+            leaves.forEach(l => {
+                // Filter: Students see own, Staff see all (or dept filtered? MVP: All)
+                if (user.role === 'student' && l.studentId !== user.id) return;
+
+                const dates = `${l.startDate} to ${l.endDate}`;
+
+                let actions = '-';
+                if (user.role !== 'student' && l.status === 'Pending') {
+                    actions = `
+                        <button onclick="updateStatus('${l.id}', 'Approved')" style="color:green;">Approve</button> 
+                        <button onclick="updateStatus('${l.id}', 'Rejected')" style="color:red;">Reject</button>
+                    `;
+                }
+
+                // Color code status
+                let statusColor = 'orange';
+                if (l.status === 'Approved') statusColor = 'green';
+                if (l.status === 'Rejected') statusColor = 'red';
+
+                tbody.innerHTML += `
+                    <tr>
+                        <td>${l.studentId}</td>
+                        <td>${dates}</td>
+                        <td>${l.reason}</td>
+                        <td style="color:${statusColor}; font-weight:bold;">${l.status}</td>
+                        ${user.role !== 'student' ? `<td>${actions}</td>` : ''}
+                    </tr>
+                `;
+            });
+        }
+
+        async function updateStatus(id, status) {
+            const user = getSession();
+            const res = await apiCall(`/api/leave/${id}`, 'PUT', { status, approver: user.id });
+            if (res && res.success) {
+                showNotification(`Marked as ${status}`, "success");
+                loadLeaves();
+            }
+        }
+    </script>
+</body>
+
+</html>

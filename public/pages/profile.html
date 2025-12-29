@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>User Profile</title>
+    <link rel="stylesheet" href="../css/style.css">
+</head>
+
+<body>
+    <nav>
+        <div class="brand">CampusGuard</div>
+        <ul>
+            <li><a href="#" onclick="window.history.back()">Back</a></li>
+        </ul>
+    </nav>
+    <div id="notification-area"></div>
+
+    <main>
+        <div class="card" style="max-width: 400px; margin: 0 auto;">
+            <h2>My Profile</h2>
+            <div style="margin-bottom: 2rem;">
+                <p><strong>Name:</strong> <span id="pName">-</span></p>
+                <p><strong>Role:</strong> <span id="pRole">-</span></p>
+            </div>
+
+            <h3>Change Password</h3>
+            <div class="form-group">
+                <label>Current Password</label>
+                <input type="password" id="oldPass">
+            </div>
+            <div class="form-group">
+                <label>New Password</label>
+                <input type="password" id="newPass">
+            </div>
+            <button class="btn btn-primary" onclick="changePass()">Update Password</button>
+        </div>
+    </main>
+
+    <script src="../js/main.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            checkAuth();
+            const user = getSession();
+            document.getElementById('pName').innerText = user.id; // Or fetch name
+            document.getElementById('pRole').innerText = user.role;
+        });
+
+        async function changePass() {
+            const oldP = document.getElementById('oldPass').value;
+            const newP = document.getElementById('newPass').value;
+            if (!oldP || !newP) return showNotification("Fill all fields", "error");
+
+            const user = getSession();
+            const res = await apiCall('/api/change-password', 'POST', {
+                id: user.id,
+                oldPassword: oldP,
+                newPassword: newP
+            });
+
+            if (res && res.success) {
+                showNotification("Password Changed!", "success");
+                document.getElementById('oldPass').value = '';
+                document.getElementById('newPass').value = '';
+            } else {
+                showNotification(res.error || "Failed", "error");
+            }
+        }
+    </script>
+</body>
+
+</html>

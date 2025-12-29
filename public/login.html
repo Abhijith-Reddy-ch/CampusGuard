@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - CampusGuard</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+
+<body style="align-items: center; justify-content: center;">
+    <div id="notification-area"></div>
+
+    <div class="card" style="width: 100%; max-width: 400px;">
+        <h2 class="text-center">CampusGuard Login</h2>
+        <div class="form-group">
+            <label>Username / User ID</label>
+            <input type="text" id="username" placeholder="Enter ID">
+        </div>
+        <div class="form-group">
+            <label>Password</label>
+            <input type="password" id="password" placeholder="Password">
+        </div>
+        <button class="btn btn-primary" style="width: 100%;" onclick="login()">Login</button>
+
+        <p style="margin-top: 1rem; font-size: 0.9rem; color: #666;">
+            Default Credentials:<br>
+            Admin: admin / admin123<br>
+            Teacher: teacher / teach123<br>
+            Guard: guard / secure123<br>
+            Student: S101 / password
+        </p>
+    </div>
+
+    <script src="js/main.js"></script>
+    <script>
+        async function login() {
+            const u = document.getElementById('username').value;
+            const p = document.getElementById('password').value;
+
+            if (!u || !p) return showNotification("Please enter credentials", "error");
+
+            const res = await apiCall('/api/login', 'POST', { username: u, password: p });
+            if (res && res.success) {
+                localStorage.setItem('user', JSON.stringify(res.user));
+                showNotification("Login Successful", "success");
+                setTimeout(() => window.location.href = 'index.html', 1000);
+            } else {
+                showNotification(res.error || "Login Failed", "error");
+            }
+        }
+    </script>
+</body>
+
+</html>

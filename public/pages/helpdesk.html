@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Student Helpdesk</title>
+    <link rel="stylesheet" href="../css/style.css">
+</head>
+
+<body>
+    <nav>
+        <div class="brand">CampusGuard Support</div>
+        <ul>
+            <li><a href="#" onclick="window.history.back()">Back</a></li>
+        </ul>
+    </nav>
+    <div id="notification-area"></div>
+
+    <main>
+        <h2>Helpdesk Support</h2>
+
+        <!-- Student: Open Ticket -->
+        <div id="studentSection" class="card" style="display:none; margin-bottom: 2rem;">
+            <h3>Open a New Ticket</h3>
+            <div class="form-group">
+                <select id="tIssue">
+                    <option value="Attendance Correction">Attendance Correction</option>
+                    <option value="Technical Issue">Technical Issue</option>
+                    <option value="ID Card Lost">ID Card Lost</option>
+                    <option value="Other">Other</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <textarea id="tDesc" placeholder="Describe your issue..."
+                    style="width:100%; height:100px; padding:0.5rem;"></textarea>
+            </div>
+            <button class="btn btn-primary" onclick="submitTicket()">Submit Ticket</button>
+        </div>
+
+        <!-- List Tickets -->
+        <div class="card">
+            <h3>Ticket History</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Issue</th>
+                        <th>Status</th>
+                        <th>Resolution</th>
+                        <th id="actionHeader">Action</th>
+                    </tr>
+                </thead>
+                <tbody id="ticketTable"></tbody>
+            </table>
+        </div>
+    </main>
+
+    <script src="../js/main.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', async () => {
+            checkAuth();
+            const user = getSession();
+
+            if (user.role === 'student') {
+                document.getElementById('studentSection').style.display = 'block';
+                document.getElementById('actionHeader').style.display = 'none';
+            }
+
+            loadTickets();
+        });
+
+        async function submitTicket() {
+            const issue = document.getElementById('tIssue').value;
+            const desc = document.getElementById('tDesc').value;
+            const user = getSession();
+
+            if (!desc) return showNotification("Please describe the issue", "error");
+
+            const res = await apiCall('/api/ticket', 'POST', {
+                studentId: user.id, issue, description: desc
+            });
+
+            if (res && res.success) {
+                showNotification("Ticket Created", "success");
+                document.getElementById('tDesc').value = '';
+                loadTickets();
+            } else {
+                showNotification("Failed", "error");
+            }
+        }
+
+        async function loadTickets() {
+            const user = getSession();
+            const tickets = await apiCall('/api/tickets');
+            const tbody = document.getElementById('ticketTable');
+            tbody.innerHTML = '';
+
+            if (!tickets || tickets.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5">No tickets found.</td></tr>';
+                return;
+            }
+
+            tickets.forEach(t => {
+                // Filter: Students see own, Staff see all
+                if (user.role === 'student' && t.studentId !== user.id) return;
+
+                let actions = '-';
+                if (user.role !== 'student' && t.status === 'Open') {
+                    actions = `<button class="btn-small" onclick="resolveTicket('${t.id}')">Resolve</button>`;
+                }
+
+                let color = 'orange';
+                if (t.status === 'Resolved') color = 'green';
+
+                tbody.innerHTML += `
+                    <tr>
+                        <td><small>${t.id.substring(0, 8)}</small></td>
+                        <td><strong>${t.issue}</strong><br><small>${t.description}</small></td>
+                        <td style="color:${color}; font-weight:bold;">${t.status}</td>
+                        <td>${t.resolution || '-'}</td>
+                        ${user.role !== 'student' ? `<td>${actions}</td>` : ''}
+                    </tr>
+                `;
+            });
+        }
+
+        async function resolveTicket(id) {
+            const resMsg = prompt("Enter Resolution Note:");
+            if (!resMsg) return;
+
+            const res = await apiCall(`/api/ticket/${id}`, 'PUT', { status: 'Resolved', resolution: resMsg });
+            if (res && res.success) {
+                showNotification("Ticket Resolved", "success");
+                loadTickets();
+            }
+        }
+    </script>
+</body>
+
+</html>

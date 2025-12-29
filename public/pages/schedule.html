@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Class Schedule</title>
+    <link rel="stylesheet" href="../css/style.css">
+</head>
+
+<body>
+    <nav>
+        <div class="brand">CampusGuard</div>
+        <ul></ul>
+    </nav>
+    <div id="notification-area"></div>
+
+    <main>
+        <div class="card">
+            <h2>Class Schedule</h2>
+
+            <div id="adminControls"
+                style="display: none; margin-bottom: 2rem; border-bottom: 1px solid #eee; padding-bottom: 1rem;">
+                <h3>Add New Class</h3>
+                <div class="form-group">
+                    <label>Department (Student Group)</label>
+                    <select id="newClassDept">
+                        <option value="CS">Computer Science</option>
+                        <option value="EE">Electrical Engineering</option>
+                        <option value="ME">Mechanical Engineering</option>
+                        <option value="CV">Civil Engineering</option>
+                    </select>
+                </div>
+
+                <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
+                    <div class="form-group" style="flex: 1; min-width: 200px;">
+                        <label>Subject</label>
+                        <input type="text" id="subject" placeholder="e.g. Math" onblur="filterTeachers()">
+                    </div>
+                    <div class="form-group" style="flex: 1; min-width: 200px;">
+                        <label>Location</label>
+                        <input type="text" id="location" placeholder="Room 101">
+                    </div>
+                    <div class="form-group" style="flex: 1; min-width: 200px;">
+                        <label>Teacher</label>
+                        <select id="teacherSelect">
+                            <option value="">Select Subject First...</option>
+                        </select>
+                        <small>Auto-filtered by Subject</small>
+                    </div>
+                </div>
+                <div style="display: flex; gap: 1rem;">
+                    <div class="form-group" style="flex: 1;">
+                        <label>Start Time</label>
+                        <input type="time" id="startTime">
+                    </div>
+                    <div class="form-group" style="flex: 1;">
+                        <label>End Time</label>
+                        <input type="time" id="endTime">
+                    </div>
+                </div>
+                <button class="btn btn-primary" onclick="saveSchedule()">Save Schedule</button>
+            </div>
+
+            <div id="filterControls" style="margin-bottom: 1rem;">
+                <label>Filter View by Dept: </label>
+                <select id="deptFilter" onchange="filterSchedule()">
+                    <option value="ALL">All Departments</option>
+                    <option value="CS">Computer Science</option>
+                    <option value="EE">Electrical Engineering</option>
+                    <option value="ME">Mechanical Engineering</option>
+                    <option value="CV">Civil Engineering</option>
+                </select>
+            </div>
+
+            <table>
+                <thead>
+                    <tr>
+                        <th>Start Time</th>
+                        <th>End Time</th>
+                        <th>Dept</th>
+                        <th>Subject</th>
+                        <th>Location</th>
+                        <th>Teacher</th>
+                        <th id="actionHeader" style="display:none;">Action</th>
+                    </tr>
+                </thead>
+                <tbody id="scheduleTable"></tbody>
+            </table>
+        </div>
+    </main>
+
+    <script src="../js/main.js"></script>
+    <script>
+        let allSchedules = [];
+        let allTeachers = [];
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            checkAuth();
+            const user = getSession();
+
+            if (user.role === 'admin') {
+                document.getElementById('adminControls').style.display = 'block';
+                document.getElementById('actionHeader').style.display = 'table-cell';
+                await loadTeachersData();
+            } else if (user.role === 'student' && user.department) {
+                const sel = document.getElementById('deptFilter');
+                if (sel.querySelector(`option[value="${user.department}"]`)) {
+                    sel.value = user.department;
+                }
+            }
+            loadSchedules();
+        });
+
+        // Ensure buttons show up if admin
+        function updateAdminView() {
+            const user = getSession();
+            if (user.role === 'admin') {
+                document.querySelectorAll('.admin-action').forEach(el => el.style.display = 'table-cell');
+            }
+        }
+
+        async function deleteSchedule(id) {
+            if (!confirm("Are you sure you want to delete this class?")) return;
+            const res = await apiCall(`/api/schedule/${id}`, 'DELETE');
+            if (res && res.success) {
+                showNotification("Deleted", "success");
+                loadSchedules();
+            } else {
+                showNotification("Failed", "error");
+            }
+        }
+
+        async function loadTeachersData() {
+            const data = await apiCall('/api/teachers');
+            if (data) allTeachers = data;
+            populateTeacherDropdown(allTeachers);
+        }
+
+        function filterTeachers() {
+            const sub = document.getElementById('subject').value.trim().toLowerCase();
+            const sel = document.getElementById('teacherSelect');
+            sel.innerHTML = '<option value="">Select Teacher</option>';
+
+            if (!sub) {
+                populateTeacherDropdown(allTeachers);
+                return;
+            }
+
+            const valid = allTeachers.filter(t => {
+                if (!t.subjects || t.subjects.length === 0) return true;
+                return t.subjects.some(s => s.toLowerCase().includes(sub) || sub.includes(s.toLowerCase()));
+            });
+
+            if (valid.length === 0) sel.innerHTML += `<option disabled>No teachers found for "${sub}"</option>`;
+            else populateTeacherDropdown(valid);
+        }
+
+        function populateTeacherDropdown(list) {
+            const sel = document.getElementById('teacherSelect');
+            sel.innerHTML = '<option value="">Select Teacher</option>';
+            list.forEach(t => {
+                sel.innerHTML += `<option value="${t.id}">${t.name} (${t.subjects ? t.subjects.join(', ') : 'All'})</option>`;
+            });
+        }
+
+        async function saveSchedule() {
+            const data = {
+                subject: document.getElementById('subject').value,
+                location: document.getElementById('location').value,
+                startTime: document.getElementById('startTime').value,
+                endTime: document.getElementById('endTime').value,
+                teacherId: document.getElementById('teacherSelect').value,
+                department: document.getElementById('newClassDept').value
+            };
+            if (!data.subject || !data.startTime || !data.teacherId) return showNotification("Fill all fields", 'error');
+
+            const result = await apiCall('/api/schedule', 'POST', data);
+            if (result && result.success) {
+                showNotification("Saved", 'success');
+                loadSchedules();
+            } else {
+                showNotification(result.error || "Conflict Detected", "error");
+            }
+        }
+
+        async function loadSchedules() {
+            const data = await apiCall('/api/schedule');
+            if (data && Array.isArray(data)) {
+                allSchedules = data;
+                filterSchedule();
+            }
+        }
+
+        function filterSchedule() {
+            const user = getSession();
+            const isAdmin = (user && user.role === 'admin');
+
+            const dept = document.getElementById('deptFilter').value;
+            const tbody = document.getElementById('scheduleTable');
+            tbody.innerHTML = '';
+
+            // Handle Header Visibility
+            const actionHeader = document.getElementById('actionHeader');
+            if (actionHeader) actionHeader.style.display = isAdmin ? 'table-cell' : 'none';
+
+            if (allSchedules.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="7">No classes scheduled.</td></tr>';
+                return;
+            }
+
+            allSchedules.forEach(s => {
+                let tName = s.teacherId || '-';
+                const T = allTeachers.find(x => x.id === s.teacherId);
+                if (T) tName = T.name;
+
+                const sDept = s.department || 'All';
+                if (dept !== 'ALL' && sDept !== dept && sDept !== 'All') return;
+
+                // Inline Admin Check for the Cell
+                const deleteBtn = isAdmin
+                    ? `<button class="btn-small btn-secondary" style="background-color:red;" onclick="deleteSchedule('${s.id}')">Delete</button>`
+                    : '';
+
+                const actionCell = isAdmin
+                    ? `<td>${deleteBtn}</td>`
+                    : ''; // If not admin, do not output the cell at all? 
+                // Wait, if header is hidden, we should output nothing. 
+                // If header is visible, we output cell.
+                // My header logic above hides header if not admin.
+                // So we should only output cell if admin.
+
+                const row = `<tr>
+                    <td>${s.startTime}</td>
+                    <td>${s.endTime}</td>
+                    <td>${sDept}</td>
+                    <td>${s.subject}</td>
+                    <td>${s.location}</td>
+                    <td>${tName}</td>
+                    ${actionCell}
+                </tr>`;
+                tbody.innerHTML += row;
+            });
+        }
+    </script>
+</body>
+
+</html>

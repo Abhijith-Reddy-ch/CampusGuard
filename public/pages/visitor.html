@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Visitor Management</title>
+    <link rel="stylesheet" href="../css/style.css">
+</head>
+
+<body>
+    <nav>
+        <div class="brand">CampusGuard Visitor Pass</div>
+        <ul>
+            <li><a href="proctor.html">Back to Dashboard</a></li>
+        </ul>
+    </nav>
+    <div id="notification-area"></div>
+
+    <main>
+        <h2>Visitor Entry / Exit</h2>
+
+        <!-- Check In Form -->
+        <div class="card">
+            <h3>📝 New Visitor Check-In</h3>
+            <div class="form-group">
+                <input type="text" id="vName" placeholder="Visitor Name">
+            </div>
+            <div class="form-group">
+                <input type="text" id="vPhone" placeholder="Phone Number">
+            </div>
+            <div class="form-group">
+                <input type="text" id="vPurpose" placeholder="Purpose (e.g. Delivery, Parent)">
+            </div>
+            <div class="form-group">
+                <input type="text" id="vHost" placeholder="Meeting Whom? (Staff/Student ID)">
+            </div>
+            <button class="btn btn-primary" onclick="checkInVisitor()">Issue Pass</button>
+        </div>
+
+        <!-- Active Visitors -->
+        <div class="card">
+            <h3>Active Visitors (On Campus)</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Phone</th>
+                        <th>Meeting</th>
+                        <th>Entry Time</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody id="visitorTable"></tbody>
+            </table>
+        </div>
+    </main>
+
+    <script src="../js/main.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            checkAuth();
+            loadVisitors();
+        });
+
+        async function checkInVisitor() {
+            const name = document.getElementById('vName').value;
+            const phone = document.getElementById('vPhone').value;
+            const purpose = document.getElementById('vPurpose').value;
+            const host = document.getElementById('vHost').value;
+
+            if (!name || !purpose) return showNotification("Name and Purpose required", "error");
+
+            const res = await apiCall('/api/visitor/in', 'POST', { name, phone, purpose, host });
+            if (res && res.success) {
+                showNotification("Visitor Checked In", "success");
+                document.getElementById('vName').value = '';
+                document.getElementById('vPhone').value = '';
+                document.getElementById('vPurpose').value = '';
+                document.getElementById('vHost').value = '';
+                loadVisitors();
+            } else {
+                showNotification("Failed", "error");
+            }
+        }
+
+        async function loadVisitors() {
+            const visitors = await apiCall('/api/visitors');
+            const tbody = document.getElementById('visitorTable');
+            tbody.innerHTML = '';
+
+            const active = visitors.filter(v => v.status === 'Active');
+
+            if (active.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5">No active visitors.</td></tr>';
+                return;
+            }
+
+            active.forEach(v => {
+                tbody.innerHTML += `
+                    <tr>
+                        <td>${v.name}</td>
+                        <td>${v.phone || '-'}</td>
+                        <td>${v.host || '-'} <br> <small>${v.purpose}</small></td>
+                        <td>${new Date(v.entryTime).toLocaleTimeString()}</td>
+                        <td><button class="btn-small btn-secondary" onclick="checkOut('${v.id}')">Check Out</button></td>
+                    </tr>
+                `;
+            });
+        }
+
+        async function checkOut(id) {
+            if (!confirm("Confirm Visitor Exit?")) return;
+            await apiCall(`/api/visitor/out/${id}`, 'PUT');
+            loadVisitors();
+        }
+    </script>
+</body>
+
+</html>

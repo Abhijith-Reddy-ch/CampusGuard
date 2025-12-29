@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Manage Users</title>
+    <link rel="stylesheet" href="../css/style.css">
+</head>
+
+<body>
+    <nav>
+        <div class="brand">CampusGuard Admin</div>
+        <ul>
+            <li><a href="admin.html">Dashboard</a></li>
+        </ul>
+    </nav>
+    <div id="notification-area"></div>
+
+    <main>
+        <h2>User Management</h2>
+        <div class="card">
+            <input type="text" id="search" placeholder="Search Users..." onkeyup="filterUsers()"
+                style="margin-bottom: 1rem; width: 100%; box-sizing: border-box;">
+
+            <table>
+                <thead>
+                    <tr>
+                        <th>ID / Username</th>
+                        <th>Name</th>
+                        <th>Role</th>
+                        <th>Dept</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody id="userTable"></tbody>
+            </table>
+        </div>
+    </main>
+
+    <script src="../js/main.js"></script>
+    <script>
+        let allUsers = [];
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            checkAuth();
+            const user = getSession();
+            if (user.role !== 'admin') {
+                window.location.href = '../index.html';
+                return;
+            }
+            loadUsers();
+        });
+
+        async function loadUsers() {
+            const data = await apiCall('/api/users');
+            if (data) {
+                allUsers = data;
+                renderUsers(allUsers);
+            }
+        }
+
+        function renderUsers(list) {
+            const tbody = document.getElementById('userTable');
+            tbody.innerHTML = '';
+            list.forEach(u => {
+                tbody.innerHTML += `
+                    <tr>
+                        <td>${u.id}</td>
+                        <td>${u.name}</td>
+                        <td>${u.role}</td>
+                        <td>${u.department || '-'}</td>
+                        <td>
+                            <button class="btn btn-small btn-secondary" onclick="resetPass('${u.id}')">Reset Pass</button>
+                            <button class="btn btn-small btn-secondary" style="background-color:red;" onclick="deleteUser('${u.id}')">Delete</button>
+                        </td>
+                    </tr>
+                `;
+            });
+        }
+
+        function filterUsers() {
+            const q = document.getElementById('search').value.toLowerCase();
+            const filtered = allUsers.filter(u =>
+                u.id.toLowerCase().includes(q) ||
+                u.name.toLowerCase().includes(q)
+            );
+            renderUsers(filtered);
+        }
+
+        async function resetPass(userId) {
+            const newP = prompt(`Enter NEW password for ${userId}:`);
+            if (!newP) return;
+
+            const res = await apiCall('/api/admin/reset-password', 'POST', { userId, newPassword: newP });
+            if (res && res.success) {
+                showNotification(`Password for ${userId} reset successfully`, "success");
+            } else {
+                showNotification("Failed to reset", "error");
+            }
+        }
+
+        async function deleteUser(id) {
+            if (id === 'admin') return alert("Cannot delete System Admin!");
+            if (!confirm(`PERMANENTLY DELETE user '${id}'? This cannot be undone.`)) return;
+
+            const res = await apiCall(`/api/user/${id}`, 'DELETE');
+            if (res && res.success) {
+                showNotification("User Deleted", "success");
+                loadUsers(); // Refresh list
+            } else {
+                showNotification("Failed to delete", "error");
+            }
+        }
+    </script>
+</body>
+
+</html>

@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teacher Dashboard</title>
+    <link rel="stylesheet" href="../css/style.css">
+    <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+</head>
+
+<body>
+    <nav>
+        <div class="brand">CampusGuard</div>
+        <ul></ul>
+    </nav>
+    <div id="notification-area"></div>
+
+    <main>
+        <!-- V3: Class Management -->
+        <div class="card">
+            <h2>My Active Classes</h2>
+            <div id="myClassesList">Loading...</div>
+        </div>
+
+        <!-- Scanner (Hidden until class started) -->
+        <div class="card" id="scannerSection" style="display: none;">
+            <h3>Class Attendance Scanner</h3>
+            <p>Scanning for: <strong id="currentClassSubject"></strong></p>
+            <div id="reader" style="width: 100%; margin-bottom: 1rem;"></div>
+            <div id="scannedList" style="margin-top: 1rem;">
+                <h4>Present Students:</h4>
+                <ul id="presentStudentsList"></ul>
+            </div>
+            <button class="btn btn-secondary" onclick="stopScanning()">Stop Scanning / Finish Class</button>
+        </div>
+
+        <!-- V2: Analytics -->
+        <div class="card">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <h2>Overall Attendance Analytics</h2>
+                <div>
+                    <button class="btn btn-secondary" onclick="window.location.reload()">Refresh Data</button>
+                    <a href="/api/export/csv" class="btn btn-primary" target="_blank">Export CSV</a>
+                </div>
+            </div>
+            <div style="margin-top: 1rem; overflow-x: auto;">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>ID</th>
+                            <th>Attended</th>
+                            <th>%</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="analyticsTable"></tbody>
+                </table>
+                <div style="margin-top: 1rem; overflow-x: auto;">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>ID</th>
+                                <th>Attended</th>
+                                <th>%</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="analyticsTable"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- V17: My Class History -->
+            <div class="card">
+                <h3>📜 My Class History</h3>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Subject</th>
+                            <th>Dept</th>
+                            <th>Students Present</th>
+                        </tr>
+                    </thead>
+                    <tbody id="teacherHistoryTable">
+                        <tr>
+                            <td colspan="4">Loading...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+    </main>
+
+    <script src="../js/main.js"></script>
+    <script>
+        let currentSessionId = null;
+        let html5QrcodeScanner = null;
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            checkAuth();
+            const user = getSession();
+            if (user.role !== 'teacher') { alert("Access Denied"); window.location.href = '../index.html'; }
+
+            loadMyClasses(user.id);
+            loadAnalytics();
+            loadTeacherHistory(user.id);
+        });
+
+        async function loadMyClasses(teacherId) {
+            const schedules = await apiCall('/api/schedule');
+            const myClasses = schedules.filter(s => s.teacherId === teacherId);
+            const container = document.getElementById('myClassesList');
+
+            if (myClasses.length === 0) {
+                container.innerHTML = "<p>No classes assigned to you.</p>";
+                return;
+            }
+
+            container.innerHTML = '';
+            myClasses.forEach(c => {
+                const div = document.createElement('div');
+                div.style.border = "1px solid #ddd";
+                div.style.padding = "1rem";
+                div.style.marginBottom = "0.5rem";
+                div.style.borderRadius = "4px";
+                div.style.display = "flex";
+                div.style.justifyContent = "space-between";
+                div.style.alignItems = "center";
+
+                div.innerHTML = `
+                    <div>
+                        <strong>${c.subject}</strong><br>
+                        ${c.location} | ${c.startTime} - ${c.endTime}
+                    </div>
+                    <button class="btn btn-primary" onclick="startClass('${c.id}', '${c.subject}')">Start Class</button>
+                `;
+                container.appendChild(div);
+            });
+        }
+
+        async function startClass(scheduleId, subject) {
+            const user = getSession();
+            // Call API to start session
+            const result = await apiCall('/api/class/start', 'POST', { scheduleId, teacherId: user.id });
+
+            if (result && result.success) {
+                currentSessionId = result.session.id;
+                document.getElementById('scannerSection').style.display = 'block';
+                document.getElementById('currentClassSubject').innerText = subject;
+                document.getElementById('presentStudentsList').innerHTML = ''; // allow fresh start
+
+                // Start Scanner
+                if (!html5QrcodeScanner) {
+                    html5QrcodeScanner = new Html5QrcodeScanner("reader", { fps: 10, qrbox: 250 });
+                    html5QrcodeScanner.render(onScanSuccess);
+                }
+
+                showNotification("Class Started! Scan students now.", "success");
+                window.scrollTo(0, document.getElementById('scannerSection').offsetTop);
+            } else {
+                showNotification(result.error || "Failed to start", "error");
+            }
+        }
+
+        function stopScanning() {
+            document.getElementById('scannerSection').style.display = 'none';
+            if (html5QrcodeScanner) {
+                html5QrcodeScanner.clear();
+                html5QrcodeScanner = null;
+            }
+            currentSessionId = null;
+            showNotification("Class Finished.", "info");
+        }
+
+        function onScanSuccess(decodedText) {
+            if (!currentSessionId) return;
+            try {
+                const data = JSON.parse(decodedText);
+                const sid = data.id || decodedText;
+                markAttendance(sid);
+            } catch (e) { markAttendance(decodedText); }
+        }
+
+        async function markAttendance(studentId) {
+            const result = await apiCall('/api/class/scan', 'POST', { studentId, sessionId: currentSessionId });
+            if (result && result.success) {
+                const li = document.createElement('li');
+                li.innerText = `${result.studentName} (${studentId})`;
+                document.getElementById('presentStudentsList').appendChild(li);
+                showNotification(`Marked: ${result.studentName}`, "success");
+
+                // Pause briefly
+                if (html5QrcodeScanner) html5QrcodeScanner.pause();
+                setTimeout(() => { if (html5QrcodeScanner) html5QrcodeScanner.resume(); }, 1500);
+            } else {
+                showNotification(result.error, "error");
+            }
+        }
+
+        async function loadAnalytics() {
+            const data = await apiCall('/api/analytics/attendance');
+            const tbody = document.getElementById('analyticsTable');
+            if (data) {
+                tbody.innerHTML = '';
+                data.forEach(s => {
+                    tbody.innerHTML += `<tr>
+                        <td>${s.name}</td>
+                        <td>${s.studentId}</td>
+                        <td>${s.attended}</td>
+                        <td style="color:${s.percentage < 75 ? 'red' : 'green'}">${s.percentage}%</td>
+                        <td>${s.percentage < 75 ? 'WARNING' : 'OK'}</td>
+                    </tr>`;
+                });
+            }
+        }
+        }
+
+        async function loadTeacherHistory(tid) {
+            const data = await apiCall(`/api/teacher/history/${tid}`);
+            const tbody = document.getElementById('teacherHistoryTable');
+            tbody.innerHTML = '';
+            if (data && data.length > 0) {
+                data.forEach(h => {
+                    tbody.innerHTML += `
+                        <tr>
+                            <td>${new Date(h.date).toLocaleString()}</td>
+                            <td>${h.subject}</td>
+                            <td>${h.department}</td>
+                            <td>${h.count}</td>
+                        </tr>
+                    `;
+                });
+            } else {
+                tbody.innerHTML = '<tr><td colspan="4">No classes taught yet.</td></tr>';
+            }
+        }
+    </script>
+</body>
+
+</html>

@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Student Dashboard</title>
+    <link rel="stylesheet" href="../css/style.css">
+</head>
+
+<body>
+    <nav>
+        <div class="brand">CampusGuard</div>
+        <ul></ul>
+    </nav>
+    <div id="notification-area"></div>
+
+    <main>
+        <h2>My Dashboard</h2>
+
+        <div class="card" id="analyticsCard" style="text-align: center;">
+            <h3>Attendance Overview</h3>
+            <div style="font-size: 3rem; font-weight: bold; margin: 1rem 0;" id="attendPercent">--%</div>
+            <p id="attendDetail">Attended: 0 / 0</p>
+            <div id="warningMsg" class="notification error" style="display: none; width: 100%; box-sizing: border-box;">
+                WARNING: Your attendance is below 75%. Please contact your supervisor.
+            </div>
+        </div>
+
+        <!-- V15: Notice Board -->
+        <div class="card">
+            <h3>📢 Notice Board</h3>
+            <ul id="noticeList" style="list-style:none; padding:0;">
+                <li>Loading notices...</li>
+            </ul>
+        </div>
+
+        <div class="card">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+                <h3>My Details</h3>
+                <a href="profile.html" class="btn btn-small btn-secondary">Profile / Password</a>
+            </div>
+            <p><strong>Name:</strong> <span id="sName">-</span></p>
+            <p><strong>ID:</strong> <span id="sId">-</span></p>
+            <p><strong>Dept:</strong> <span id="sDept">-</span></p>
+            <div style="margin-top: 1rem;">
+                <a href="schedule.html" class="btn btn-primary"
+                    style="width:100%; display:block; text-align:center; margin-bottom: 0.5rem;">📅 View My Schedule</a>
+                <a href="leave.html" class="btn btn-secondary" style="width:100%; display:block; text-align:center;">🤒
+                    Apply for Leave</a>
+                <a href="helpdesk.html" class="btn btn-secondary"
+                    style="width:100%; display:block; text-align:center; margin-top:0.5rem; background-color: #9b59b6;">🎫
+                    Helpdesk / Support</a>
+            </div>
+        </div>
+
+        <!-- V6 History -->
+        <div class="card">
+            <h3>Recent Class History</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Subject</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody id="historyTable">
+                    <tr>
+                        <td colspan="3">Loading...</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </main>
+
+    <script src="../js/main.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', async () => {
+            checkAuth();
+            const user = getSession();
+            if (user.role !== 'student') {
+                alert("Access Denied");
+                window.location.href = '../index.html';
+                return;
+            }
+
+            // Load Stats
+            const stats = await apiCall(`/api/my-attendance/${user.id}`);
+            if (stats) {
+                document.getElementById('sName').innerText = stats.name;
+                document.getElementById('sId').innerText = stats.studentId;
+                document.getElementById('sDept').innerText = stats.department;
+
+                const pElem = document.getElementById('attendPercent');
+                pElem.innerText = stats.percentage + '%';
+                document.getElementById('attendDetail').innerText = `Attended: ${stats.attended} / Total: ${stats.total}`;
+
+                if (stats.percentage < 75) {
+                    pElem.style.color = 'red';
+                    document.getElementById('warningMsg').style.display = 'block';
+                } else {
+                    pElem.style.color = 'green';
+                }
+            }
+
+            // V15: Load Notices
+            const notices = await apiCall('/api/notices');
+            const noticeList = document.getElementById('noticeList');
+            if (notices && notices.length > 0) {
+                noticeList.innerHTML = '';
+                notices.slice(0, 3).forEach(n => {
+                    const color = n.priority === 'Urgent' ? 'red' : 'inherit';
+                    const weight = n.priority === 'Urgent' ? 'bold' : 'normal';
+                    noticeList.innerHTML += `
+                        <li style="border-bottom:1px solid #eee; padding: 0.5rem 0;">
+                            <span style="color:${color}; font-weight:${weight}; display:block;">${n.title}</span>
+                            <small>${new Date(n.date).toLocaleDateString()} - ${n.content}</small>
+                        </li>
+                    `;
+                });
+            } else {
+                noticeList.innerHTML = '<li>No new notices.</li>';
+            }
+
+            // V6: History Stats
+            const history = await apiCall(`/api/my-history/${user.id}`);
+            const tbody = document.getElementById('historyTable');
+            if (history && history.length > 0) {
+                tbody.innerHTML = '';
+                history.forEach(h => {
+                    let statusColor = 'red';
+                    if (h.status === 'Present') statusColor = 'green';
+                    else if (h.status === 'Late') statusColor = 'orange';
+
+                    tbody.innerHTML += `
+                        <tr>
+                            <td>${h.date}</td>
+                            <td>${h.subject}</td>
+                            <td style="color:${statusColor}; font-weight:bold;">${h.status}</td>
+                        </tr>
+                    `;
+                });
+            } else {
+                tbody.innerHTML = '<tr><td colspan="3">No stats available yet.</td></tr>';
+            }
+        });
+    </script>
+</body>
+
+</html>

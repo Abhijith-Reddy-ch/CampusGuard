@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard</title>
+    <link rel="stylesheet" href="../css/style.css">
+    <style>
+        .stat-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .stat-card {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+            text-align: center;
+        }
+
+        .stat-card h3 {
+            margin: 0;
+            color: #777;
+            font-size: 0.9rem;
+            text-transform: uppercase;
+        }
+
+        .stat-card p {
+            margin: 0.5rem 0 0;
+            font-size: 2rem;
+            font-weight: bold;
+            color: #2c3e50;
+        }
+    </style>
+</head>
+
+<body>
+    <nav>
+        <div class="brand">CampusGuard Admin</div>
+        <ul></ul>
+    </nav>
+    <div id="notification-area"></div>
+
+    <main>
+        <h2>System Overview</h2>
+
+        <div class="stat-grid">
+            <div class="stat-card">
+                <h3>Total Students</h3>
+                <p id="totalStudents">-</p>
+            </div>
+            <div class="stat-card">
+                <h3>Daily Attendance</h3>
+                <p id="dailyAttendance">-</p>
+            </div>
+            <div class="stat-card">
+                <h3>Total SOS Alerts</h3>
+                <p id="sosAlerts">-</p>
+            </div>
+        </div>
+
+        <div class="card">
+            <h3>Quick Links</h3>
+            <a href="schedule.html" class="btn btn-primary">Manage Schedules</a>
+            <a href="admin-users.html" class="btn btn-secondary" style="background-color: #e67e22;">Manage Users</a>
+            <a href="leave.html" class="btn btn-secondary" style="background-color: #16a085;">Leave Requests</a>
+            <a href="register.html" class="btn btn-secondary">Register New Student</a>
+            <a href="register-staff.html" class="btn btn-secondary" style="background-color: #34495e;">Register
+                Staff</a>
+            <a href="helpdesk.html" class="btn btn-secondary" style="background-color: #9b59b6;">Helpdesk Tickets</a>
+        </div>
+
+        <!-- V15 Fix: Post Notice -->
+        <div class="card">
+            <h3>📢 Post New Notice</h3>
+            <div class="form-group">
+                <input type="text" id="nTitle" placeholder="Title (e.g. Exam Schedule)">
+            </div>
+            <div class="form-group">
+                <input type="text" id="nContent" placeholder="Message content...">
+            </div>
+            <div class="form-group">
+                <select id="nPriority">
+                    <option value="Normal">Normal Priority</option>
+                    <option value="Urgent">URGENT</option>
+                </select>
+            </div>
+            <button class="btn btn-primary" onclick="postNotice()">Post Notice</button>
+        </div>
+    </main>
+
+    <script src="../js/main.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', async () => {
+            checkAuth();
+            const user = getSession();
+            if (user.role !== 'admin') {
+                alert("Access Denied: Admin Only");
+                window.location.href = '../index.html';
+                return;
+            }
+
+            const data = await apiCall('/api/stats');
+            if (data) {
+                document.getElementById('totalStudents').innerText = data.totalStudents;
+                document.getElementById('dailyAttendance').innerText = data.dailyAttendance;
+                document.getElementById('sosAlerts').innerText = data.sosAlerts;
+            }
+        });
+
+        async function postNotice() {
+            const title = document.getElementById('nTitle').value;
+            const content = document.getElementById('nContent').value;
+            const priority = document.getElementById('nPriority').value;
+
+            if (!title || !content) return showNotification("Fill all fields", "error");
+
+            const res = await apiCall('/api/notice', 'POST', { title, content, priority });
+            if (res && res.success) {
+                showNotification("Notice Posted!", "success");
+                document.getElementById('nTitle').value = '';
+                document.getElementById('nContent').value = '';
+            } else {
+                showNotification("Failed", "error");
+            }
+        }
+    </script>
+</body>
+
+</html>

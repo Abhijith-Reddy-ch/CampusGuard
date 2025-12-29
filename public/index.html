@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Home - CampusGuard</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+
+<body>
+    <nav>
+        <div class="brand">CampusGuard</div>
+        <ul><!-- Filled by JS --></ul>
+    </nav>
+    <div id="notification-area"></div>
+
+    <main>
+        <section class="hero card">
+            <h1>Welcome to CampusGuard</h1>
+            <p id="welcomeMsg">Secure. Smart. Efficient.</p>
+            <div style="margin-top: 2rem;" id="actionButtons">
+                <!-- Buttons injected based on role -->
+            </div>
+        </section>
+
+        <section class="card" style="display: flex; justify-content: space-around; text-align: center;">
+            <div>
+                <h3>Security</h3>
+                <p>Role-Based Access</p>
+            </div>
+            <div>
+                <h3>Real-time</h3>
+                <p>Live Entry/Exit Logs</p>
+            </div>
+            <div>
+                <h3>Analytics</h3>
+                <p>Attendance Monitoring</p>
+            </div>
+        </section>
+    </main>
+
+    <script src="js/main.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            checkAuth();
+            const user = getSession();
+            if (user) {
+                document.getElementById('welcomeMsg').innerText = `Welcome back, ${user.name} (${user.role})`;
+
+                const btnContainer = document.getElementById('actionButtons');
+                if (user.role === 'student') {
+                    btnContainer.innerHTML = `<a href="pages/student-dashboard.html" class="btn btn-primary">My Dashboard</a>`;
+                } else if (user.role === 'guard') {
+                    btnContainer.innerHTML = `<a href="pages/entry.html" class="btn btn-primary">Entry Gate</a>`;
+                } else if (user.role === 'admin') {
+                    btnContainer.innerHTML = `<a href="pages/admin.html" class="btn btn-primary">Admin Console</a>`;
+                } else if (user.role === 'teacher') {
+                    btnContainer.innerHTML = `<a href="pages/teacher.html" class="btn btn-primary">Attendance View</a>`;
+                }
+            }
+        });
+    </script>
+</body>
+
+</html>

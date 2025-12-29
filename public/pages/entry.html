@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Entry Gate</title>
+    <link rel="stylesheet" href="../css/style.css">
+    <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+</head>
+
+<body>
+    <nav>
+        <div class="brand">CampusGuard</div>
+        <ul></ul>
+    </nav>
+    <div id="notification-area"></div>
+
+    <main>
+        <div style="display: flex; gap: 2rem; flex-wrap: wrap;">
+            <div class="card" style="flex: 1; min-width: 300px;">
+                <h2>Entry Gate Scanner</h2>
+                <div id="reader" style="width: 100%; margin-bottom: 1rem;"></div>
+                <div class="text-center">
+                    <p id="scan-status">Waiting...</p>
+                </div>
+                <hr>
+                <h3>Manual Entry</h3>
+                <div class="form-group">
+                    <input type="text" id="manualId" placeholder="Enter ID">
+                </div>
+                <button class="btn btn-primary" onclick="manualEntry()">Log Entry</button>
+            </div>
+
+            <div class="card" style="flex: 2; min-width: 400px;">
+                <h2>Recent Entries</h2>
+                <table id="entryTable">
+                    <thead>
+                        <tr>
+                            <th>Time</th>
+                            <th>ID</th>
+                            <th>Name</th>
+                            <th>Dept</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </div>
+    </main>
+
+    <script src="../js/main.js"></script>
+    <script>
+        let html5QrcodeScanner;
+        document.addEventListener('DOMContentLoaded', () => {
+            checkAuth();
+            const user = getSession();
+            if (user.role !== 'guard' && user.role !== 'admin') {
+                alert("Security Guard Access Only");
+                window.location.href = '../index.html';
+                return;
+            }
+
+            html5QrcodeScanner = new Html5QrcodeScanner("reader", { fps: 10, qrbox: 250 });
+            html5QrcodeScanner.render(onScanSuccess);
+            loadEntries();
+        });
+
+        function onScanSuccess(decodedText) {
+            try {
+                const data = JSON.parse(decodedText);
+                if (data.id) logEntry(data.id);
+                else logEntry(decodedText);
+            } catch (e) { logEntry(decodedText); }
+            html5QrcodeScanner.pause();
+            setTimeout(() => html5QrcodeScanner.resume(), 2000);
+        }
+
+        async function manualEntry() {
+            const id = document.getElementById('manualId').value;
+            if (id) await logEntry(id);
+        }
+
+        async function logEntry(id) {
+            const result = await apiCall('/api/entry', 'POST', { studentId: id });
+            if (result && result.success) {
+                showNotification(`Entry Allowed: ${result.student || id}`, 'success');
+                if (result.attendance && result.attendance.marked) {
+                    showNotification("Attendance Marked!", "success");
+                }
+                loadEntries();
+            } else {
+                showNotification(result ? result.error : "Failed", 'error');
+            }
+        }
+
+        async function loadEntries() {
+            const data = await apiCall('/api/entries');
+            if (data) {
+                const tbody = document.querySelector('#entryTable tbody');
+                tbody.innerHTML = '';
+                data.forEach(entry => {
+                    const row = `<tr>
+                        <td>${new Date(entry.time).toLocaleTimeString()}</td>
+                        <td>${entry.studentId}</td>
+                        <td>${entry.studentName}</td>
+                        <td>${entry.department}</td>
+                        <td>${entry.attendance && entry.attendance.marked ? "Present" : "In"}</td>
+                    </tr>`;
+                    tbody.innerHTML += row;
+                });
+            }
+        }
+    </script>
+</body>
+
+</html>

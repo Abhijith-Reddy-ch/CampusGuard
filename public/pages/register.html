@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Register Student</title>
+    <link rel="stylesheet" href="../css/style.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+</head>
+
+<body>
+    <nav>
+        <div class="brand">CampusGuard</div>
+        <ul></ul>
+    </nav>
+    <div id="notification-area"></div>
+
+    <main>
+        <div class="card" style="max-width: 600px; margin: 0 auto;">
+            <h2>Register New Student</h2>
+            <div class="form-group">
+                <label for="studentId">Student ID</label>
+                <input type="text" id="studentId" placeholder="e.g., S101">
+            </div>
+            <div class="form-group">
+                <label for="name">Student Name</label>
+                <input type="text" id="name" placeholder="Full Name">
+            </div>
+            <div class="form-group">
+                <label for="age">Age</label>
+                <input type="number" id="age" placeholder="Age">
+            </div>
+            <div class="form-group">
+                <label for="dept">Department</label>
+                <select id="dept">
+                    <option value="CS">Computer Science</option>
+                    <option value="EE">Electrical Engineering</option>
+                    <option value="ME">Mechanical Engineering</option>
+                    <option value="CV">Civil Engineering</option>
+                </select>
+            </div>
+            <button class="btn btn-primary" onclick="registerStudent()">Register & Generate QR</button>
+
+            <div id="qr-result" class="text-center mt-4 hidden" style="display:none;">
+                <h3>Registration Successful</h3>
+                <p>Default Password: <strong>password</strong></p>
+                <div id="qrcode" style="display: flex; justify-content: center; margin: 1rem 0;"></div>
+            </div>
+        </div>
+    </main>
+
+    <script src="../js/main.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            checkAuth();
+            const user = getSession();
+            if (user.role !== 'admin') {
+                alert("Admin Only");
+                window.location.href = '../index.html';
+            }
+        });
+
+        async function registerStudent() {
+            const student = {
+                id: document.getElementById('studentId').value,
+                name: document.getElementById('name').value,
+                age: document.getElementById('age').value,
+                department: document.getElementById('dept').value
+            };
+
+            const result = await apiCall('/api/register', 'POST', student);
+
+            if (result && result.success) {
+                showNotification(result.message, "success");
+                document.getElementById('qr-result').style.display = 'block';
+                document.getElementById('qrcode').innerHTML = "";
+                new QRCode(document.getElementById("qrcode"), {
+                    text: JSON.stringify(student),
+                    width: 128, height: 128
+                });
+            } else {
+                showNotification(result ? result.error : "Failed", "error");
+            }
+        }
+    </script>
+</body>
+
+</html>

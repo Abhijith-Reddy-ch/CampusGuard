@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Register Staff</title>
+    <link rel="stylesheet" href="../css/style.css">
+</head>
+
+<body>
+    <nav>
+        <div class="brand">CampusGuard Admin</div>
+        <ul></ul>
+    </nav>
+    <div id="notification-area"></div>
+
+    <main>
+        <div class="card" style="max-width: 500px; margin: 0 auto;">
+            <h2>Register New Staff</h2>
+            <div class="form-group">
+                <label>User ID / Username</label>
+                <input type="text" id="sid" placeholder="e.g. T005">
+            </div>
+            <div class="form-group">
+                <label>Full Name</label>
+                <input type="text" id="sname" placeholder="Name">
+            </div>
+            <div class="form-group">
+                <label>Role</label>
+                <select id="srole" onchange="toggleSubjects()">
+                    <option value="teacher">Teacher</option>
+                    <option value="guard">Security Guard</option>
+                    <option value="admin">Administrator</option>
+                </select>
+            </div>
+            <!-- V4: Subjects Input -->
+            <div class="form-group" id="subjectGroup">
+                <label>Subjects (Comma, Separated)</label>
+                <input type="text" id="ssubjects" placeholder="e.g. Math, Physics">
+                <small>Required for Teachers</small>
+            </div>
+
+            <div class="form-group">
+                <label>Password</label>
+                <input type="password" id="spassword" placeholder="*****">
+            </div>
+            <button class="btn btn-primary" onclick="registerStaff()">Create Account</button>
+        </div>
+    </main>
+
+    <script src="../js/main.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            checkAuth();
+            const user = getSession();
+            if (user.role !== 'admin') {
+                alert("Access Denied");
+                window.location.href = '../index.html';
+            }
+        });
+
+        function toggleSubjects() {
+            const role = document.getElementById('srole').value;
+            const div = document.getElementById('subjectGroup');
+            div.style.display = (role === 'teacher') ? 'block' : 'none';
+        }
+
+        async function registerStaff() {
+            const data = {
+                id: document.getElementById('sid').value,
+                name: document.getElementById('sname').value,
+                role: document.getElementById('srole').value,
+                password: document.getElementById('spassword').value,
+                subjects: document.getElementById('ssubjects').value // V4
+            };
+
+            const result = await apiCall('/api/register-staff', 'POST', data);
+
+            if (result && result.success) {
+                showNotification("Staff Account Created!", "success");
+                setTimeout(() => {
+                    document.getElementById('sid').value = '';
+                    document.getElementById('sname').value = '';
+                    document.getElementById('spassword').value = '';
+                    document.getElementById('ssubjects').value = '';
+                }, 1000);
+            } else {
+                showNotification(result ? result.error : "Failed", "error");
+            }
+        }
+    </script>
+</body>
+
+</html>
